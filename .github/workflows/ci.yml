@@ -32,16 +32,14 @@ jobs:
             exit 1
           fi
 
-          curl -sL "${GEO_URL}?edition_id=GeoLite2-Country-CSV&license_key=${GEO_KEY}&suffix=zip" -o csv.zip
+          curl -fsL "${GEO_URL}?edition_id=GeoLite2-Country-CSV&license_key=${GEO_KEY}&suffix=zip" -o csv.zip
           unzip -q csv.zip
           find . -name "*Blocks-IPv4*.csv" -exec mv {} . \;
           find . -name "*Locations*.csv" -exec mv {} . \;
 
-          curl -sL "${GEO_URL}?edition_id=GeoLite2-Country&license_key=${GEO_KEY}&suffix=tar.gz" -o mmdb.tar.gz
+          curl -fsL "${GEO_URL}?edition_id=GeoLite2-Country&license_key=${GEO_KEY}&suffix=tar.gz" -o mmdb.tar.gz
           tar -xzf mmdb.tar.gz
           find GeoLite2-Country_* -name "*.mmdb" -exec mv {} . \;
-
-          touch patches.txt
 
       - name: Compile LightGeo.db
         run: |
@@ -65,7 +63,7 @@ jobs:
           ./build/lightgeo \
             $LOC_ARGS \
             -b $BLOCKS_FILE \
-            -p patches.txt \
+            -p data/patches.txt \
             -o LightGeo.db
 
       - name: Run Unit Tests & Benchmark
