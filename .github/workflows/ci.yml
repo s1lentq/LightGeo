@@ -3,7 +3,7 @@ name: LightGeo CI/CD
 on:
   push:
     branches: [ "master" ]
-    tags: [ "v*.*.*" ]
+    tags: [ "*.*.*" ]
   pull_request:
     branches: [ "master" ]
 
@@ -74,7 +74,7 @@ jobs:
           ./build/lightgeo_bench LightGeo.db $MMDB_FILE
 
       - name: Upload Compiled Database for Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: lightgeo-db
@@ -84,7 +84,7 @@ jobs:
   release:
     name: Build Release Binaries
     needs: test-and-benchmark
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -136,9 +136,6 @@ jobs:
           Copy-Item include\lightgeo.hpp -Destination ${{ matrix.pkg_name }}\include\
           Copy-Item LightGeo.db -Destination ${{ matrix.pkg_name }}\data\
           Compress-Archive -Path ${{ matrix.pkg_name }} -DestinationPath ${{ matrix.archive_name }}
-
-      - name: Rename Artifact
-        run: mv ${{ matrix.executable }} ${{ matrix.artifact_name }}
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
