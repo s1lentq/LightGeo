@@ -11,6 +11,8 @@ jobs:
   test-and-benchmark:
     name: Run Benchmarks
     runs-on: ubuntu-latest
+    outputs:
+      data_ready: ${{ steps.fetcher.outputs.success }}
 
     steps:
       - name: Checkout code
@@ -23,6 +25,7 @@ jobs:
         run: cmake --build build --config Release -j $(nproc)
 
       - name: Fetch Provider Data
+        id: fetcher
         env:
           GEO_KEY: ${{ secrets.GEO_PROVIDER_KEY }}
           GEO_URL: ${{ secrets.GEO_PROVIDER_URL }}
@@ -32,16 +35,31 @@ jobs:
             exit 1
           fi
 
-          curl -fsL "${GEO_URL}?edition_id=GeoLite2-Country-CSV&license_key=${GEO_KEY}&suffix=zip" -o csv.zip
-          unzip -q csv.zip
-          find . -name "*Blocks-IPv4*.csv" -exec mv {} . \;
-          find . -name "*Locations*.csv" -exec mv {} . \;
+          download_and_check() {
+            STATUS=$(curl -w "%{http_code}" -L "$1" -o "$2")
+            if [ "$STATUS" -ne 200 ]; then
+              echo "::warning::Download failed with status $STATUS. Skipping DB compilation."
+              echo "Server response content:"
+              cat "$2"
+              return 1
+            fi
+            return 0
+          }
 
-          curl -fsL "${GEO_URL}?edition_id=GeoLite2-Country&license_key=${GEO_KEY}&suffix=tar.gz" -o mmdb.tar.gz
-          tar -xzf mmdb.tar.gz
-          find GeoLite2-Country_* -name "*.mmdb" -exec mv {} . \;
+          if download_and_check "${GEO_URL}?edition_id=GeoLite2-Country-CSV&license_key=${GEO_KEY}&suffix=zip" "csv.zip" && \
+             download_and_check "${GEO_URL}?edition_id=GeoLite2-Country&license_key=${GEO_KEY}&suffix=tar.gz" "mmdb.tar.gz"; then
+             echo "success=true" >> $GITHUB_OUTPUT
+             unzip -q csv.zip
+             find . -name "*Blocks-IPv4*.csv" -exec mv {} . \;
+             find . -name "*Locations*.csv" -exec mv {} . \;
+             tar -xzf mmdb.tar.gz
+             find GeoLite2-Country_* -name "*.mmdb" -exec mv {} . \;
+          else
+             echo "success=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Compile LightGeo.db
+        if: steps.fetcher.outputs.success == 'true'
         run: |
           PRIORITY_LANGS=("en" "ru" "es")
           LOC_ARGS=""
@@ -67,12 +85,13 @@ jobs:
             -o LightGeo.db
 
       - name: Run Unit Tests & Benchmark
+        if: steps.fetcher.outputs.success == 'true'
         run: |
           MMDB_FILE=$(ls *.mmdb | head -n 1)
           ./build/lightgeo_bench LightGeo.db $MMDB_FILE
 
       - name: Upload Compiled Database for Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.fetcher.outputs.success == 'true' && startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: lightgeo-db
@@ -97,6 +116,12 @@ jobs:
             executable: build/Release/lightgeo.exe
 
     steps:
+      - name: Verify Release Integrity
+        if: needs.test-and-benchmark.outputs.data_ready == 'false'
+        run: |
+          echo "::error::Release aborted: Unable to obtain or compile database."
+          exit 1
+
       - name: Checkout code
         uses: actions/checkout@v4
 
