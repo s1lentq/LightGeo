@@ -568,12 +568,6 @@ bool Compiler::Compile(const std::vector<fs::path>& loc_files, const fs::path& b
 		return false;
 	}
 
-	// compute checksum of LUT + entries for check integrity
-	uint32_t checksum = Db::Adler32(1, lut.data(), lut.size() * sizeof(IndexRange));
-	checksum = Db::Adler32(checksum, optimized.data(), optimized.size() * sizeof(Entry));
-	checksum = Db::Adler32(checksum, dictionary.data(), dictionary.size() * sizeof(Location));
-	checksum = Db::Adler32(checksum, locale_data.data(), locale_data.size() * sizeof(LocaleData));
-
 	Header header = {
 		Db::kMagic,
 		Db::kVersion,
@@ -582,7 +576,7 @@ bool Compiler::Compile(const std::vector<fs::path>& loc_files, const fs::path& b
 		static_cast<uint16_t>(loc_files.size()),
 		{},	// available locales
 		0,	// padding
-		checksum
+		0   // checksum
 	};
 
 	// fill in available locales in header
@@ -592,6 +586,14 @@ bool Compiler::Compile(const std::vector<fs::path>& loc_files, const fs::path& b
 		lang.code[std::min(lang_codes[i].length(), sizeof(lang.code) - 1)] = '\0';
 		lang.tag = Db::ToTag64(lang_codes[i].c_str());
 	}
+
+	// compute checksum of LUT + entries for check integrity
+	uint32_t checksum = Db::Adler32(1, &header, sizeof(Header) - sizeof(uint32_t));
+	checksum = Db::Adler32(checksum, lut.data(), lut.size() * sizeof(IndexRange));
+	checksum = Db::Adler32(checksum, optimized.data(), optimized.size() * sizeof(Entry));
+	checksum = Db::Adler32(checksum, dictionary.data(), dictionary.size() * sizeof(Location));
+	checksum = Db::Adler32(checksum, locale_data.data(), locale_data.size() * sizeof(LocaleData));
+	header.checksum = checksum;
 
 	// File layout: [Header] [IndexRange] [IP Ranges] [Geodata Table] [Locale Table]
 	fOut.write(reinterpret_cast<const char *>(&header), sizeof(Header));

@@ -34,8 +34,8 @@ static constexpr uint32_t kMaxLocaleNameSize = 8;
 
 #pragma pack(push, 1)
 struct LocaleDef {
-    uint64_t tag;
-    char     code[kMaxLocaleNameSize];
+	uint64_t tag;
+	char     code[kMaxLocaleNameSize];
 };
 
 struct Header {
@@ -96,7 +96,7 @@ class Db {
 public:
 	static constexpr const char *kName    = "LightGeo.db";
 	static constexpr uint32_t    kMagic   = 0x4F45474C; // "LGEO"
-	static constexpr uint32_t    kVersion = 4;
+	static constexpr uint32_t    kVersion = 5;
 
 	Db() = default;
 	~Db() { Close(); }
@@ -189,7 +189,8 @@ inline bool Db::Open(const char *file_path) {
 	locale_data_ = reinterpret_cast<LocaleData *>(ptr);
 
 	// check integrity
-	uint32_t hash = Adler32(1, indices_, 65536 * sizeof(IndexRange));
+	uint32_t hash = Adler32(1, header_, sizeof(Header) - sizeof(uint32_t));
+	hash = Adler32(hash, indices_, 65536 * sizeof(IndexRange));
 	hash = Adler32(hash, entries_, header_->entry_count * sizeof(Entry));
 	hash = Adler32(hash, locations_, header_->location_count * sizeof(Location));
 	hash = Adler32(hash, locale_data_, static_cast<size_t>(header_->location_count) * header_->locale_count * sizeof(LocaleData));
@@ -301,17 +302,17 @@ inline std::wstring Db::Utf8ToUtf16(const char *utf8_str) noexcept {
 }
 
 inline bool Db::MapFile(const char *file_path) noexcept {
+	if (!file_path) return false;
 	std::wstring utf16_filename = Utf8ToUtf16(file_path);
 	file_h_ = CreateFileW(utf16_filename.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (file_h_ == INVALID_HANDLE_VALUE)
 		return false;
 
 	LARGE_INTEGER file_size_info;
-	if (!GetFileSizeEx(file_h_, &file_size_info) || file_size_info.QuadPart < sizeof(Header)) {
-		return false;
-	}
+	if (!GetFileSizeEx(file_h_, &file_size_info)) return false;
+	if (file_size_info.QuadPart < sizeof(Header) || file_size_info.QuadPart > INTPTR_MAX) return false;
 
-	map_h_ = CreateFileMappingA(file_h_, nullptr, PAGE_READONLY, 0, 0, nullptr);
+	map_h_ = CreateFileMapping(file_h_, nullptr, PAGE_READONLY, 0, 0, nullptr);
 	if (!map_h_) return false;
 
 	map_view_ = MapViewOfFile(map_h_, FILE_MAP_READ, 0, 0, 0);
@@ -322,11 +323,15 @@ inline bool Db::MapFile(const char *file_path) noexcept {
 }
 #else
 inline bool Db::MapFile(const char *file_path) noexcept {
+	if (!file_path) return false;
+	fd = open(file_path, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) return false;
 	struct stat st;
-	if (fstat(fd, &st) < 0 || static_cast<size_t>(st.st_size) < sizeof(Header)) { return false; }
-	file_size_ = static_cast<size_t>(st.st_size);
-	map_view_  = mmap(nullptr, file_size_, PROT_READ, MAP_SHARED, fd, 0);
+	if (fstat(fd, &st) < 0) return false;
+	size_t size = static_cast<size_t>(st.st_size);
+	if (size < sizeof(Header) || size > SSIZE_MAX) return false;
+	file_size_ = size;
+	map_view_ = mmap(nullptr, file_size_, PROT_READ, MAP_SHARED, fd, 0);
 	return map_view_ != MAP_FAILED;
 }
 #endif
