@@ -20,23 +20,18 @@ LightGeo is strictly minimal. It provides only the essential fields for IP-to-co
 * Database Compiler: C++20 minimum.
 
 
-## Performance Benchmark
+## Performance
 
-Tested against the official MaxMind libmaxminddb engine using 1,000,000 random IPv4 addresses.
+Benchmarked against the official MaxMind `libmaxminddb` C engine using **1,000,000 random IPv4 addresses**.
 
-```text
-> LightGeo Benchmark
-  Total time: 0.0134 seconds
-  Avg time per lookup: 13.41 ns
-  Speed: 74,592,759 lookups/sec
+| Engine | Architecture | Total Time | Latency | Lookups/sec | Speedup |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **LightGeo** | **Flat Array + LUT Index** | **13.4 ms** | **13.4 ns** | **~74.5 M/s** | **24.0x** |
+| `libmaxminddb` | Radix Tree (Binary Trie) | 322.9 ms | 322.9 ns | ~3.09 M/s | 1.0x |
 
-> GeoLite2 Benchmark (libmaxminddb)
-  Total time: 0.3229 seconds
-  Avg time per lookup: 322.92 ns
-  Speed: 3,096,731 lookups/sec
+**Why is LightGeo faster?** `libmaxminddb` is a highly flexible, general-purpose backend engine designed to support complex nested structures and IPv6. To achieve this, it relies on a Radix Tree traversal, which inevitably leads to pointer chasing and CPU cache misses. 
 
-Result: LightGeo is ~24x faster.
-```
+`LightGeo` sacrifices this flexibility for raw performance. It is strictly purpose-built for IPv4 country resolution, utilizing aligned flat arrays and a `/16` Look-Up Table (LUT). This flat architecture maximizes CPU cache locality and completely eliminates heap allocation (`malloc`) during data extraction.
 
 
 ## Core Architecture
