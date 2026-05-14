@@ -71,17 +71,23 @@ jobs:
             -p data/patches.txt \
             -o LightGeo.db
 
-      - name: Get Date
-        run: echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
+      - name: Publish Database
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date +'%Y.%m.%d')
 
-      - name: Update Release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: "latest-db"
-          name: "${{ env.DATE }}"
-          body: "${{ env.DATE }}"
-          artifacts: "LightGeo.db"
-          allowUpdates: true
-          replacesArtifacts: true
-          commit: ${{ github.sha }}
-          makeLatest: false
+          echo "Syncing floating tag (latest-db)"
+          gh release view latest-db >/dev/null 2>&1 || \
+          gh release create latest-db --title "$DATE" --notes "$DATE"
+          gh release edit latest-db --title "$DATE" --notes "$DATE"
+          gh release upload latest-db LightGeo.db --clobber
+
+          echo "Syncing latest semantic release"
+          LATEST_TAG=$(gh release list --exclude-drafts --exclude-pre-releases | awk -F'\t' '{print $3}' | grep -v '^latest-db$' | head -n 1)
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Found semantic release: $LATEST_TAG. Uploading LightGeo.db..."
+            gh release upload "$LATEST_TAG" LightGeo.db --clobber
+          else
+            echo "No semantic releases found yet. Skipping step."
+          fi
