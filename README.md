@@ -26,8 +26,8 @@ Benchmarked against the official MaxMind `libmaxminddb` C engine using **1,000,0
 
 | Engine | Architecture | Total Time | Latency | Lookups/sec | Speedup |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **LightGeo** | **Flat Array + LUT Index** | **13.4 ms** | **13.4 ns** | **~74.5 M/s** | **~24.0x** |
-| `libmaxminddb` | Radix Tree (Binary Trie) | 322.9 ms | 322.9 ns | ~3.09 M/s | 1.0x |
+| **LightGeo** | **Flat Array + LUT Index** | **13.4 ms** | **13.4 ns** | **~74.5M** | **~24.0x** |
+| `libmaxminddb` | Radix Tree (Binary Trie) | 322.9 ms | 322.9 ns | ~3.09M | 1.0x |
 
 **Why is LightGeo faster?** `libmaxminddb` is a highly flexible, general-purpose backend engine designed to support complex nested structures and IPv6. To achieve this, it relies on a Radix Tree traversal, which inevitably leads to pointer chasing and CPU cache misses. 
 
