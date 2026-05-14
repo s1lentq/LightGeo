@@ -1,0 +1,87 @@
+name: Update Database
+
+on:
+  schedule:
+    - cron: '0 0 * * 3,6'
+
+  workflow_dispatch:
+
+jobs:
+  build-and-publish-db:
+    name: Build and Publish Database
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -DUSE_BENCHMARK=OFF -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Compiler
+        run: cmake --build build --config Release
+
+      - name: Fetch Provider Data
+        env:
+          GEO_KEY: ${{ secrets.GEO_PROVIDER_KEY }}
+          GEO_URL: ${{ secrets.GEO_PROVIDER_URL }}
+        run: |
+          if [ -z "$GEO_KEY" ] || [ -z "$GEO_URL" ]; then
+            echo "::error::Provider secrets are not set!"
+            exit 1
+          fi
+
+          download_and_check() {
+            STATUS=$(curl -w "%{http_code}" -L "$1" -o "$2")
+            if [ "$STATUS" -ne 200 ]; then
+              echo "::error::Download failed with status $STATUS."
+              cat "$2"
+              exit 1
+            fi
+            return 0
+          }
+
+          download_and_check "${GEO_URL}?edition_id=GeoLite2-Country-CSV&license_key=${GEO_KEY}&suffix=zip" "csv.zip"
+          download_and_check "${GEO_URL}?edition_id=GeoLite2-Country&license_key=${GEO_KEY}&suffix=tar.gz" "mmdb.tar.gz"
+
+          unzip -q csv.zip
+          find . -name "*Blocks-IPv4*.csv" -exec mv {} . \;
+          find . -name "*Locations*.csv" -exec mv {} . \;
+          tar -xzf mmdb.tar.gz
+          find GeoLite2-Country_* -name "*.mmdb" -exec mv {} . \;
+
+      - name: Compile LightGeo.db
+        run: |
+          PRIORITY_LANGS=("en" "ru" "es")
+          LOC_ARGS=""
+          for lang in "${PRIORITY_LANGS[@]}"; do
+            FILE="GeoLite2-Country-Locations-${lang}.csv"
+            if [ -f "$FILE" ]; then LOC_ARGS="$LOC_ARGS -l $FILE"; fi
+          done
+
+          for file in *Locations*.csv; do
+            if [[ "$LOC_ARGS" != *"$file"* ]]; then LOC_ARGS="$LOC_ARGS -l $file"; fi
+          done
+
+          BLOCKS_FILE=$(ls *Blocks-IPv4*.csv | head -n 1)
+
+          ./build/lightgeo \
+            $LOC_ARGS \
+            -b $BLOCKS_FILE \
+            -p data/patches.txt \
+            -o LightGeo.db
+
+      - name: Get Date
+        run: echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
+
+      - name: Update Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: "latest-db"
+          name: "${{ env.DATE }}"
+          body: "${{ env.DATE }}"
+          artifacts: "LightGeo.db"
+          allowUpdates: true
+          replacesArtifacts: true
+          commit: ${{ github.sha }}
+          makeLatest: false

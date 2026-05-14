@@ -90,14 +90,6 @@ jobs:
           MMDB_FILE=$(ls *.mmdb | head -n 1)
           ./build/lightgeo_bench LightGeo.db $MMDB_FILE
 
-      - name: Upload Compiled Database for Release
-        if: steps.fetcher.outputs.success == 'true' && startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-artifact@v4
-        with:
-          name: lightgeo-db
-          path: LightGeo.db
-          retention-days: 1
-
   release:
     name: Build Release Binaries
     needs: test-and-benchmark
@@ -107,13 +99,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            pkg_name: lightgeo-linux-amd64
-            archive_name: lightgeo-linux-amd64.tar.gz
-            executable: build/lightgeo
+            os_name: linux
+            arch: x86_64
+            ext: tar.gz
+            exe: lightgeo
           - os: windows-latest
-            pkg_name: lightgeo-windows-amd64
-            archive_name: lightgeo-windows-amd64.zip
-            executable: build/Release/lightgeo.exe
+            os_name: windows
+            arch: x64
+            ext: zip
+            exe: Release/lightgeo.exe
+    env:
+      FOLDER: lightgeo-${{ matrix.os_name }}-${{ matrix.arch }}
+      ASSET: lightgeo-${{ matrix.os_name }}-${{ matrix.arch }}.${{ matrix.ext }}
 
     steps:
       - name: Verify Release Integrity
@@ -131,38 +128,28 @@ jobs:
       - name: Build Compiler
         run: cmake --build build --config Release
 
-      - name: Download Compiled Database
-        uses: actions/download-artifact@v4
-        with:
-          name: lightgeo-db
-          path: .
-
       - name: Package Release (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          mkdir -p ${{ matrix.pkg_name }}/bin
-          mkdir -p ${{ matrix.pkg_name }}/include
-          mkdir -p ${{ matrix.pkg_name }}/data
-          cp ${{ matrix.executable }} ${{ matrix.pkg_name }}/bin/
-          cp include/lightgeo.hpp ${{ matrix.pkg_name }}/include/
-          cp LightGeo.db ${{ matrix.pkg_name }}/data/
-          tar -czvf ${{ matrix.archive_name }} ${{ matrix.pkg_name }}/
+          mkdir -p ${{ env.FOLDER }}/bin
+          mkdir -p ${{ env.FOLDER }}/include
+          cp build/${{ matrix.exe }} ${{ env.FOLDER }}/bin/
+          cp include/lightgeo.hpp ${{ env.FOLDER }}/include/
+          tar -czvf ${{ env.ASSET }} ${{ env.FOLDER }}/
 
       - name: Package Release (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path ${{ matrix.pkg_name }}\bin
-          New-Item -ItemType Directory -Force -Path ${{ matrix.pkg_name }}\include
-          New-Item -ItemType Directory -Force -Path ${{ matrix.pkg_name }}\data
-          Copy-Item ${{ matrix.executable }} -Destination ${{ matrix.pkg_name }}\bin\
-          Copy-Item include\lightgeo.hpp -Destination ${{ matrix.pkg_name }}\include\
-          Copy-Item LightGeo.db -Destination ${{ matrix.pkg_name }}\data\
-          Compress-Archive -Path ${{ matrix.pkg_name }} -DestinationPath ${{ matrix.archive_name }}
+          New-Item -ItemType Directory -Force -Path ${{ env.FOLDER }}\bin
+          New-Item -ItemType Directory -Force -Path ${{ env.FOLDER }}\include
+          Copy-Item build\${{ matrix.exe }} -Destination ${{ env.FOLDER }}\bin\
+          Copy-Item include\lightgeo.hpp -Destination ${{ env.FOLDER }}\include\
+          Compress-Archive -Path ${{ env.FOLDER }} -DestinationPath ${{ env.ASSET }}
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ matrix.archive_name }}
+          files: ${{ env.ASSET }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
