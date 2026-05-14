@@ -1,6 +1,6 @@
 # LightGeo
 
-[![CI/CD](https://github.com/s1lentq/LightGeo/actions/workflows/ci.yml/badge.svg)](https://github.com/s1lentq/LightGeo/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/s1lentq/LightGeo/actions/workflows/ci-engine.yml/badge.svg)](https://github.com/s1lentq/LightGeo/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/s1lentq/LightGeo)](https://github.com/s1lentq/LightGeo/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -26,7 +26,7 @@ Benchmarked against the official MaxMind `libmaxminddb` C engine using **1,000,0
 
 | Engine | Architecture | Total Time | Latency | Lookups/sec | Speedup |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **LightGeo** | **Flat Array + LUT Index** | **13.4 ms** | **13.4 ns** | **~74.5 M/s** | **24.0x** |
+| **LightGeo** | **Flat Array + LUT Index** | **13.4 ms** | **13.4 ns** | **~74.5 M/s** | **~24.0x** |
 | `libmaxminddb` | Radix Tree (Binary Trie) | 322.9 ms | 322.9 ns | ~3.09 M/s | 1.0x |
 
 **Why is LightGeo faster?** `libmaxminddb` is a highly flexible, general-purpose backend engine designed to support complex nested structures and IPv6. To achieve this, it relies on a Radix Tree traversal, which inevitably leads to pointer chasing and CPU cache misses. 
