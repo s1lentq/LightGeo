@@ -9,10 +9,10 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <utility>
-#include <cstring>
+#include <string>
 
 #ifdef _WIN32
 	#define NOMINMAX
@@ -152,6 +152,7 @@ private:
 #ifdef _WIN32
 	HANDLE file_h_ = INVALID_HANDLE_VALUE;
 	HANDLE map_h_ = nullptr;
+	static std::wstring Utf8ToUtf16(const char *utf8_str) noexcept;
 #else
 	int fd = -1;
 #endif
@@ -289,9 +290,19 @@ inline void Db::MoveFrom(Db&& o) noexcept {
 	o.file_size_ = 0;
 }
 
-inline bool Db::MapFile(const char *file_path) noexcept {
 #ifdef _WIN32
-	file_h_ = CreateFileA(file_path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+inline std::wstring Db::Utf8ToUtf16(const char *utf8_str) noexcept {
+	if (!utf8_str) return {};
+	int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, nullptr, 0);
+	if (wlen <= 0) return {};
+	std::wstring wstr(wlen, 0);
+	if (MultiByteToWideChar(CP_UTF8, 0, utf8_str, -1, &wstr[0], wlen) < 1) return {};
+	return wstr;
+}
+
+inline bool Db::MapFile(const char *file_path) noexcept {
+	std::wstring utf16_filename = Utf8ToUtf16(file_path);
+	file_h_ = CreateFileW(utf16_filename.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (file_h_ == INVALID_HANDLE_VALUE)
 		return false;
 
@@ -308,16 +319,17 @@ inline bool Db::MapFile(const char *file_path) noexcept {
 
 	file_size_ = static_cast<size_t>(file_size_info.QuadPart);
 	return true;
+}
 #else
-	fd = open(file_path, O_RDONLY);
+inline bool Db::MapFile(const char *file_path) noexcept {
 	if (fd < 0) return false;
 	struct stat st;
 	if (fstat(fd, &st) < 0 || static_cast<size_t>(st.st_size) < sizeof(Header)) { return false; }
 	file_size_ = static_cast<size_t>(st.st_size);
 	map_view_  = mmap(nullptr, file_size_, PROT_READ, MAP_SHARED, fd, 0);
 	return map_view_ != MAP_FAILED;
-#endif
 }
+#endif
 
 inline void Db::UnmapFile() noexcept {
 #ifdef _WIN32
