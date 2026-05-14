@@ -15,6 +15,7 @@
 #include <charconv>
 #include <unordered_map>
 #include <span>
+#include <cstring>
 
 #include <lightgeo.hpp>
 
