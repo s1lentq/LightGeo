@@ -19,6 +19,9 @@ LightGeo is strictly minimal. It provides only the essential fields for IP-to-co
 * C++ Header (lightgeo.hpp): C++14 minimum.
 * Database Compiler: C++20 minimum.
 
+## Download
+* [Latest Database](https://github.com/s1lentq/LightGeo/releases/download/latest-db/LightGeo.db)
+* [Latest SDK & Compiler](https://github.com/s1lentq/LightGeo/releases/latest)
 
 ## Performance
 
@@ -29,7 +32,7 @@ Benchmarked against the official MaxMind `libmaxminddb` C engine using **1,000,0
 | **LightGeo** | **Flat Array + LUT Index** | **13.4 ms** | **13.4 ns** | **~74.5M** | **~24.0x** |
 | `libmaxminddb` | Radix Tree (Binary Trie) | 322.9 ms | 322.9 ns | ~3.09M | 1.0x |
 
-**Why is LightGeo faster?** `libmaxminddb` is a highly flexible, general-purpose backend engine designed to support complex nested structures and IPv6. To achieve this, it relies on a Radix Tree traversal, which inevitably leads to pointer chasing and CPU cache misses. 
+**Why is LightGeo faster?** `libmaxminddb` is a highly flexible, general-purpose backend engine designed to support complex nested structures and IPv6. To achieve this, it relies on a Radix Tree traversal, which inevitably leads to pointer chasing and CPU cache misses.
 
 `LightGeo` sacrifices this flexibility for raw performance. It is strictly purpose-built for IPv4 country resolution, utilizing aligned flat arrays and a `/16` Look-Up Table (LUT). This flat architecture maximizes CPU cache locality and completely eliminates heap allocation (`malloc`) during data extraction.
 
@@ -56,7 +59,7 @@ Pre-compiled databases and headers are available on the [Releases page](../../re
 
 int main() {
     LightGeo::Db geoDb;
-    
+
     if (!geoDb.Open("LightGeo.db")) {
         std::cerr << "Failed to load database\n";
         return 1;
@@ -64,8 +67,8 @@ int main() {
 
     // IP address lookup requires Host Byte Order
     // Example: 8.8.8.8 -> 134744072
-    auto result = geoDb.Lookup(134744072); 
-    
+    auto result = geoDb.Lookup(134744072);
+
     if (result) {
         std::cout << "Country: " << result->country_iso_code << "\n";
 
@@ -89,7 +92,7 @@ LightGeo::LocaleView geoView;
 geoView.Init(&geoDb, "en");
 
 void OnClientConnect(uint32_t ip) {
-    auto result = geoView.Lookup(ip); 
+    auto result = geoView.Lookup(ip);
     if (result) {
         printf("Connection from: %s\n", result->country_name);
     }
