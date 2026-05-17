@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: cmake -B build -DUSE_BENCHMARK=OFF -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DLIGHTGEO_BUILD_BENCHMARK=OFF -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Compiler
         run: cmake --build build --config Release

@@ -9,11 +9,11 @@ if(MSVC)
 	add_compile_options(/utf-8 /W4)
 endif()
 
-option(USE_BENCHMARK "Build benchmarks and MaxMind comparison" ON)
-option(USE_STATIC_RUNTIME "Link with static runtime (/MT or /MTd)" ON)
+option(LIGHTGEO_BUILD_BENCHMARK "Build benchmarks and MaxMind comparison" ON)
+option(LIGHTGEO_BUILD_STATIC_RUNTIME "Link with static runtime (/MT or /MTd)" ON)
 
 if(MSVC)
-	if(USE_STATIC_RUNTIME)
+	if(LIGHTGEO_BUILD_STATIC_RUNTIME)
 		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 	else()
 		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<NOT:$<CONFIG:Debug>>:DLL>$<$<CONFIG:Debug>:DebugDLL>")
@@ -26,7 +26,7 @@ target_include_directories(lightgeo PRIVATE
 	"${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
-if(USE_BENCHMARK)
+if(LIGHTGEO_BUILD_BENCHMARK)
 	include(FetchContent)
 	FetchContent_Declare(
 		libmaxminddb

@@ -27,10 +27,10 @@ LightGeo is strictly minimal. It provides only the essential fields for IP-to-co
 
 Benchmarked against the official MaxMind `libmaxminddb` C engine using **1,000,000 random IPv4 addresses**.
 
-| Engine | Architecture | Total Time | Latency | Lookups/sec | Speedup |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **LightGeo** | **Flat Array + LUT Index** | **13.4 ms** | **13.4 ns** | **~74.5M** | **~24.0x** |
-| `libmaxminddb` | Radix Tree (Binary Trie) | 322.9 ms | 322.9 ns | ~3.09M | 1.0x |
+| Engine | Architecture | Latency | Throughput (lookups/sec) | Speedup |
+| :--- | :--- | :--- | :--- | :--- |
+| **LightGeo** | **Flat Array + LUT Index** | **13.4 ns** | **~74.5M** | **~24.0x** |
+| `libmaxminddb` | Radix Tree (Binary Trie) | 322.9 ns | ~3.09M | 1.0x |
 
 **Why is LightGeo faster?** `libmaxminddb` is a highly flexible, general-purpose backend engine designed to support complex nested structures and IPv6. To achieve this, it relies on a Radix Tree traversal, which inevitably leads to pointer chasing and CPU cache misses.
 
@@ -65,10 +65,8 @@ int main() {
         return 1;
     }
 
-    // IP address lookup requires Host Byte Order
-    // Example: 8.8.8.8 -> 134744072
-    auto result = geoDb.Lookup(134744072);
-
+    // IP address lookup
+    auto result = geoDb.Lookup("8.8.8.8");
     if (result) {
         std::cout << "Country: " << result->country_iso_code << "\n";
 
@@ -103,11 +101,28 @@ void OnClientConnect(uint32_t ip) {
 ## Compiler Build Instructions
 For manual database generation from raw CSV data.
 
+### 1. Prerequisites
+Download the **GeoLite2 Country (CSV)** database from the official website:
+[MaxMind GeoLite2 Downloads](https://maxmind.com)
+
+* **Target Database:** Look for **"GeoLite Country: CSV Format"** (Edition ID: `GeoLite2-Country-CSV`).
+* **Format:** Download the **ZIP** archive.
+
+Extract the required `.csv` files from the downloaded archive into the repository root folder.
+
+### 2. CLI Arguments
+* `-l <path>` - Path to locations CSV file. **Can be specified multiple times** for different languages (e.g., English, Russian, Spanish, etc.).
+* `-b <path>` - Path to IPv4 blocks CSV file.
+* `-o <path>` - Output path for the generated database file.
+
+### 3. Build and Run (Example)
+
 ```bash
 git clone https://github.com/s1lentq/LightGeo.git
 cd LightGeo
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 
-./build/lightgeo -l locations-en.csv -l locations-ru.csv -b blocks-ipv4.csv -o CustomGeo.db
+# Example with English and Russian locales:
+./build/lightgeo -l GeoLite2-Country-Locations-en.csv -l GeoLite2-Country-Locations-ru.csv -b GeoLite2-Country-Blocks-IPv4.csv -o CustomGeo.db
 ```
